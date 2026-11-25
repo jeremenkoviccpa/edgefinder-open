@@ -7,6 +7,8 @@ writes the geopolitical-risk tracker, the news feed and the scorecard narratives
 
 See **[FINDINGS.md](FINDINGS.md)** for how the original works and where its data comes from.
 
+**Live:** dashboard https://edgefinder-open.vercel.app · API https://edgefinder-api-production.up.railway.app/api/health
+
 ```
 CFTC ─┐
 FRED ─┤                         ┌─ /api/dashboard ─┐
