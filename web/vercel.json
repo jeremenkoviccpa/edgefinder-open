@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
-    { "source": "/api/:path*", "destination": "https://RAILWAY_DOMAIN/api/:path*" }
+    { "source": "/api/:path*", "destination": "https://edgefinder-api-production.up.railway.app/api/:path*" }
   ],
   "headers": [
     { "source": "/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=60" }] }
