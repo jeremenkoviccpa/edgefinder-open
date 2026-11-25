@@ -70,6 +70,8 @@ COT_LABELS.update({a["cot"]: name for name, a in ASSETS.items() if a.get("cot")}
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://localhost:11434/v1")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "ollama")
 LLM_MODEL = os.getenv("LLM_MODEL", "hermes3:8b")
+# For reasoning models (e.g. gpt-oss on Groq): "low" keeps thinking from eating the token budget.
+LLM_REASONING_EFFORT = os.getenv("LLM_REASONING_EFFORT") or None
 
 MYFXBOOK_EMAIL = os.getenv("MYFXBOOK_EMAIL")
 MYFXBOOK_PASSWORD = os.getenv("MYFXBOOK_PASSWORD")

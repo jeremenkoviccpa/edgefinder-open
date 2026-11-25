@@ -9,7 +9,7 @@ import re
 
 from openai import OpenAI
 
-from .config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL
+from .config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, LLM_REASONING_EFFORT
 
 _client: OpenAI | None = None
 
@@ -35,6 +35,8 @@ def _extract_json(text: str) -> dict:
 def chat_json(system: str, user: str, max_tokens: int = 1500, temperature: float = 0.2) -> dict:
     msgs = [{"role": "system", "content": system}, {"role": "user", "content": user}]
     kwargs = dict(model=LLM_MODEL, messages=msgs, max_tokens=max_tokens, temperature=temperature)
+    if LLM_REASONING_EFFORT:
+        kwargs["reasoning_effort"] = LLM_REASONING_EFFORT
     try:
         resp = client().chat.completions.create(response_format={"type": "json_object"}, **kwargs)
     except Exception:
