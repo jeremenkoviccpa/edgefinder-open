@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EdgeFinder Open</title>
+<meta name="description" content="Macro, positioning and sentiment scores for FX, indices, metals and commodities, built from public data.">
+<style>
+  :root {
+    --bg: #15161a; --panel: #1e2026; --panel-2: #262932; --border: #30333d;
+    --text: #e7e9ee; --muted: #9399a8; --bull: #3b55d9; --bull-soft: #2a3a8f;
+    --bear: #e0525a; --bear-soft: #8f2f36; --neutral: #3a3d47; --accent: #7c8cff;
+    --warn: #e6b450;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; justify-content: space-between;
+    padding: 18px 16px 8px; max-width: 1400px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: .2px; }
+  h1 span { color: var(--muted); font-weight: 400; font-size: 14px; margin-left: 8px; }
+  h2 { font-size: 15px; margin: 0 0 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .6px; }
+  .meta { color: var(--muted); font-size: 12px; }
+  main { max-width: 1400px; margin: 0 auto; padding: 8px 16px 40px; display: grid; gap: 16px;
+    grid-template-columns: minmax(0, 1fr) 360px; }
+  @media (max-width: 1100px) { main { grid-template-columns: minmax(0, 1fr); } }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; min-width: 0; }
+  .filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .filters button { background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 12px; cursor: pointer; }
+  .filters button.on { background: var(--accent); border-color: var(--accent); color: #0d0f1a; font-weight: 600; }
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: separate; border-spacing: 2px; width: 100%; font-variant-numeric: tabular-nums; }
+  th { font-size: 11px; color: var(--muted); font-weight: 600; padding: 6px 4px; white-space: nowrap; text-align: center; }
+  th.grp { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; background: var(--panel-2); border-radius: 4px; }
+  td { text-align: center; padding: 6px 6px; border-radius: 4px; white-space: nowrap; }
+  td.asset { text-align: left; font-weight: 600; cursor: pointer; text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
+  td.asset:hover { color: var(--accent); }
+  .pos { background: var(--bull); } .neg { background: var(--bear); } .zero { background: var(--neutral); color: var(--muted); }
+  .pos.soft { background: var(--bull-soft); } .neg.soft { background: var(--bear-soft); }
+  .bias-Bullish, .bias-Very.Bullish { color: #9fb0ff; } .bias-Bearish, .bias-Very.Bearish { color: #ff9aa0; }
+  .side { display: grid; gap: 16px; align-content: start; }
+  .gauge { display: flex; align-items: center; gap: 14px; }
+  .gauge .num { font-size: 40px; font-weight: 700; }
+  .bar { height: 8px; border-radius: 4px; background: linear-gradient(90deg, #3b82f6, #a3a3a3 45%, #e0525a); position: relative; margin: 8px 0 4px; }
+  .bar i { position: absolute; top: -4px; width: 4px; height: 16px; background: #fff; border-radius: 2px; }
+  ul.list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  ul.list li { border-left: 3px solid var(--border); padding-left: 10px; }
+  ul.list li.bullish { border-color: var(--bull); } ul.list li.bearish { border-color: var(--bear); }
+  .tag { display: inline-block; font-size: 11px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; margin: 2px 3px 0 0; color: var(--muted); }
+  .src { display: flex; flex-wrap: wrap; gap: 6px; }
+  .src span { font-size: 11px; padding: 2px 7px; border-radius: 4px; background: var(--panel-2); }
+  .src span.bad { color: var(--warn); border: 1px solid var(--warn); }
+  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 12px;
+    width: min(900px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0; }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  .dlg-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--panel); }
+  .dlg-body { padding: 16px; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .dlg-body .wide { grid-column: 1 / -1; }
+  .close { background: none; border: 0; color: var(--muted); font-size: 22px; cursor: pointer; }
+  .kv { display: grid; grid-template-columns: 1fr auto auto auto; gap: 4px 12px; font-size: 13px; }
+  .kv .h { color: var(--muted); font-size: 11px; }
+  .up { color: #8ea0ff; } .down { color: #ff8e95; }
+  .narr { font-style: italic; color: #cfd3dc; }
+  svg.spark { width: 100%; height: 90px; }
+  .empty { color: var(--muted); padding: 30px; text-align: center; }
+  footer { max-width: 1400px; margin: 0 auto; padding: 0 16px 30px; color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>EdgeFinder Open <span>macro · positioning · sentiment scores from public data</span></h1>
+  <div class="meta" id="updated">Loading…</div>
+</header>
+<main>
+  <section class="card">
+    <h2>Top Setups</h2>
+    <div class="filters" id="filters"></div>
+    <div class="table-wrap"><table id="setups"></table></div>
+  </section>
+  <aside class="side">
+    <section class="card" id="geo"><h2>Geopolitical Risk</h2><div class="empty">—</div></section>
+    <section class="card" id="news"><h2>AI News Feed</h2><div class="empty">—</div></section>
+    <section class="card" id="aaii"><h2>AAII Sentiment</h2><div class="empty">—</div></section>
+    <section class="card"><h2>Data sources</h2><div class="src" id="sources"></div></section>
+  </aside>
+</main>
+<footer>Scores follow A1 Trading's published EdgeFinder methodology, rebuilt on CFTC, FRED, ForexFactory, Yahoo Finance, AAII and Google News data. Informational only — not financial advice.</footer>
+
+<dialog id="dlg"><div class="dlg-head"><strong id="dlg-title"></strong><button class="close" onclick="dlg.close()" aria-label="Close">×</button></div><div class="dlg-body" id="dlg-body"></div></dialog>
+
+<script>
+const COLS = ["COT","Retail","Seasonality","Trend","GDP","Retail Sales","Cons. Sent.","CPI","PPI","PCE","NFP","Unemployment","Claims","Rates"];
+const GROUPS = [["Sentiment",2],["Technical",2],["Growth",3],["Inflation",3],["Labor",3],["",1]];
+const KINDS = {all:"All", fx:"FX", index:"Indices", metal:"Metals", commodity:"Commodities", crypto:"Crypto"};
+let DATA = null, kind = "all";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const cls = v => v > 0 ? "pos" + (v === 1 ? " soft" : "") : v < 0 ? "neg" + (v === -1 ? " soft" : "") : "zero";
+const fmt = (v, d = 2) => v == null ? "—" : Math.abs(v) >= 1e5 ? (v/1e3).toLocaleString(undefined,{maximumFractionDigits:0}) + "k" : (+v).toFixed(d);
+
+async function load() {
+  try {
+    const r = await fetch("/api/dashboard", {cache: "no-store"});
+    if (r.status === 503) { $("updated").textContent = "First data run in progress — refresh in a few minutes."; return; }
+    if (!r.ok) throw new Error(r.status);
+    DATA = await r.json();
+    render();
+  } catch (e) { $("updated").textContent = "Could not load data (" + e.message + ")"; }
+}
+
+function render() {
+  $("updated").textContent = "Updated " + new Date(DATA.generated_at).toLocaleString();
+  $("filters").innerHTML = Object.entries(KINDS).map(([k, v]) => `<button class="${k===kind?"on":""}" data-k="${k}">${v}</button>`).join("");
+  $("filters").querySelectorAll("button").forEach(b => b.onclick = () => { kind = b.dataset.k; render(); });
+  const rows = DATA.setups.filter(r => kind === "all" || r.kind === kind);
+  $("setups").innerHTML =
+    `<tr><th colspan="3"></th>${GROUPS.map(([g,n]) => `<th class="grp" colspan="${n}">${g}</th>`).join("")}</tr>` +
+    `<tr><th style="text-align:left">Asset</th><th>Bias</th><th>Score</th>${COLS.map(c => `<th>${c}</th>`).join("")}</tr>` +
+    rows.map(r => `<tr><td class="asset" data-a="${r.asset}">${r.asset}</td>
+      <td class="bias-${r.bias.replace(" ", ".")}">${r.bias}</td>
+      <td class="${Math.abs(r.score) >= 5 ? cls(r.score) : "zero"}"><b>${r.score}</b></td>
+      ${COLS.map(c => `<td class="${cls(r.columns[c])}">${r.columns[c]}</td>`).join("")}</tr>`).join("");
+  $("setups").querySelectorAll("td.asset").forEach(td => td.onclick = () => openCard(td.dataset.a));
+  renderGeo(); renderNews(); renderAaii(); renderSources();
+}
+
+function renderGeo() {
+  const g = DATA.geo_risk; if (!g) return;
+  const ev = (g.llm && g.llm.events) || [];
+  $("geo").innerHTML = `<h2>Geopolitical Risk</h2>
+    <div class="gauge"><div class="num">${g.score}</div><div><b style="text-transform:capitalize">${esc(g.level)}</b><div class="meta">LLM ${g.llm ? g.llm.score : "—"} · keywords ${g.keyword.score} · ${g.keyword.n_headlines} headlines</div></div></div>
+    <div class="bar"><i style="left:calc(${g.score}% - 2px)"></i></div>
+    ${spark((DATA.geo_history || []).map(p => p.score), 0, 100)}
+    <ul class="list">${ev.slice(0,5).map(e => `<li class="bearish"><b>${esc(e.region)}</b> · sev ${esc(e.severity)}<br>${esc(e.summary)}<br>${(e.assets||[]).map(a => `<span class="tag">${esc(a)}</span>`).join("")}</li>`).join("")}</ul>`;
+}
+
+function renderNews() {
+  const items = (DATA.news && DATA.news.items) || [];
+  $("news").innerHTML = `<h2>AI News Feed</h2>` + (items.length ? `<ul class="list">${items.map(i => `<li class="${esc(i.tone)}"><b>${esc(i.title)}</b><br>${esc(i.summary)}<br>${(i.assets||[]).map(a => `<span class="tag">${esc(a)}</span>`).join("")}</li>`).join("")}</ul>` : `<div class="empty">No digest yet (LLM offline?)</div>`);
+}
+
+function renderAaii() {
+  const a = DATA.aaii; if (!a) return;
+  $("aaii").innerHTML = `<h2>AAII Sentiment · ${esc(a.date)}</h2>
+    <div class="kv"><span class="h">Bullish</span><span class="h">Neutral</span><span class="h">Bearish</span><span class="h">Signal</span>
+    <span class="up">${a.bullish}%</span><span>${a.neutral}%</span><span class="down">${a.bearish}%</span><span>${esc(a.contrarian)}</span></div>
+    ${spark((DATA.aaii_history || []).map(p => p.spread * 100))}
+    <div class="meta">Bull–bear spread, 52 weeks · z = ${a.spread_z}</div>`;
+}
+
+function renderSources() {
+  $("sources").innerHTML = Object.entries(DATA.sources).map(([k, v]) =>
+    `<span class="${v.ok ? "" : "bad"}" title="${esc(v.error || v.model || "")}">${v.ok ? "✓" : "!"} ${esc(k)}</span>`).join("");
+}
+
+function spark(vals, lo, hi) {
+  if (!vals || vals.length < 2) return "";
+  lo = lo ?? Math.min(...vals); hi = hi ?? Math.max(...vals); const span = (hi - lo) || 1;
+  const pts = vals.map((v, i) => `${(i/(vals.length-1)*300).toFixed(1)},${(85 - (v-lo)/span*80).toFixed(1)}`).join(" ");
+  return `<svg class="spark" viewBox="0 0 300 90" preserveAspectRatio="none"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="${pts}"/></svg>`;
+}
+
+async function openCard(asset) {
+  const r = DATA.setups.find(x => x.asset === asset);
+  $("dlg-title").textContent = `${asset} — ${r.bias} (${r.score})`;
+  const d = r.detail, body = $("dlg-body");
+  const t = d.trend || {}, s = d.seasonality || {};
+  const macroRows = Object.entries(d.macro || {}).flatMap(([ccy, inds]) => Object.values(inds || {}).filter(i => i.actual != null).map(i =>
+    `<span>${esc(ccy)} ${esc(i.label)}</span><span>${fmt(i.actual)}</span><span>${fmt(i.forecast ?? i.previous)}${i.basis === "previous" ? "<sup title='vs previous (no forecast on file)'>p</sup>" : ""}</span><span class="${(i.surprise*i.good_dir)>0?"up":(i.surprise*i.good_dir)<0?"down":""}">${fmt(i.surprise)}</span>`)).join("");
+  const cot = d.cot && (d.cot.long_pct != null ? {[asset]: d.cot} : d.cot) || {};
+  body.innerHTML = `
+    ${r.narrative ? `<p class="narr wide">${esc(r.narrative)}</p>` : ""}
+    <div class="card"><h2>Scores</h2><div class="kv" style="grid-template-columns:1fr auto">
+      ${Object.entries(r.groups).map(([k,v]) => `<span style="text-transform:capitalize">${k}</span><b class="${v>0?"up":v<0?"down":""}">${v}</b>`).join("")}</div></div>
+    <div class="card"><h2>Technical</h2><div class="kv" style="grid-template-columns:1fr auto">
+      <span>Price</span><b>${fmt(t.price, 4)}</b><span>3 / 14 SMA</span><b>${fmt(t.sma3,4)} / ${fmt(t.sma14,4)}</b>
+      ${Object.entries(t.above_sma || {}).map(([k,v]) => `<span>Above ${k} SMA</span><b class="${v?"up":"down"}">${v?"yes":"no"}</b>`).join("")}
+      <span>${esc(s.month || "Season")} avg / win</span><b>${fmt(s.avg_return_pct)}% / ${fmt(s.win_rate_pct,0)}%</b></div></div>
+    <div class="card"><h2>Positioning</h2><div class="kv" style="grid-template-columns:1fr auto auto">
+      <span class="h">COT (non-comm.)</span><span class="h">Long %</span><span class="h">Wk Δ</span>
+      ${Object.entries(cot).filter(([,m]) => m).map(([k,m]) => `<span>${esc(k)}</span><span>${fmt(m.long_pct)}%</span><span class="${m.weekly_change>0?"up":"down"}">${fmt(m.weekly_change)}</span>`).join("")}
+      <span>Retail (${esc(d.retail.source)})</span><span>${d.retail.long_pct != null ? fmt(d.retail.long_pct)+"% long" : d.retail.ma5 != null ? "PCR " + fmt(d.retail.ma5,3) : "—"}</span><span>${esc(d.retail.state || "")}</span></div></div>
+    <div class="card wide"><h2>Macro (actual · forecast · surprise)</h2>${macroRows ? `<div class="kv"><span class="h">Indicator</span><span class="h">Actual</span><span class="h">Fcst</span><span class="h">Surprise</span>${macroRows}</div>` : `<div class="meta">No macro feed for this economy yet.</div>`}</div>
+    <div class="card wide"><h2>Score history</h2><div id="hist" class="meta">Loading…</div></div>`;
+  dlg.showModal();
+  try {
+    const h = await (await fetch(`/api/scorecard/${asset}`)).json();
+    $("hist").innerHTML = h.history.length > 1 ? spark(h.history.map(p => p.score), -12, 12) + `<div class="meta">${h.history.length} daily scores</div>` : "History builds up one point per day.";
+  } catch { $("hist").textContent = "—"; }
+}
+const dlg = $("dlg");
+load();
+setInterval(load, 10 * 60 * 1000);
+</script>
+</body>
+</html>
