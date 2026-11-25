@@ -7,13 +7,18 @@ import logging
 import os
 import threading
 from contextlib import asynccontextmanager
+from pathlib import Path
+
+import pandas as pd
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import pipeline
+from .config import ASSETS
 from .db import get_kv
+from .sources import prices
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("edgefinder.api")
@@ -85,9 +90,30 @@ def scorecard(asset: str):
     return {**row, "history": pipeline.score_history(row["asset"])}
 
 
+@app.get("/api/prices/{asset}")
+def price_history(asset: str, days: int = 400):
+    a = ASSETS.get(asset.upper())
+    if not a:
+        raise HTTPException(404, f"unknown asset {asset}")
+    s = prices.history(a["yf"]).tail(days + 200)
+    ma = {n: s.rolling(n).mean() for n in (20, 50, 200)}
+    s = s.tail(days)
+    return {"asset": asset.upper(), "points": [
+        {"date": d.date().isoformat(), "close": round(float(v), 6),
+         **{f"ma{n}": (None if pd.isna(m.loc[d]) else round(float(m.loc[d]), 6)) for n, m in ma.items()}}
+        for d, v in s.items()]}
+
+
 @app.post("/api/refresh")
 def refresh(x_admin_token: str | None = Header(default=None)):
     if not ADMIN_TOKEN or x_admin_token != ADMIN_TOKEN:
         raise HTTPException(403, "forbidden")
     threading.Thread(target=run_pipeline, daemon=True).start()
     return {"started": True}
+
+
+# Local preview: EF_SERVE_WEB=1 serves the dashboard from this process (Vercel does this in prod).
+_WEB = Path(__file__).resolve().parent.parent / "web"
+if os.getenv("EF_SERVE_WEB") == "1" and _WEB.exists():
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/", StaticFiles(directory=_WEB, html=True), name="web")

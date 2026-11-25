@@ -5,7 +5,7 @@ import time
 from datetime import date, datetime, timezone
 
 from . import digest, llm, scoring
-from .config import ASSETS, CURRENCY_COT, OUTPUT_DIR
+from .config import ASSETS, COT_LABELS, CURRENCY_COT, OUTPUT_DIR
 from .db import conn, get_kv, put_kv
 from .sources import aaii, cot, macro, pcr, prices, retail
 
@@ -69,6 +69,11 @@ def run(with_llm: bool = True, narrate_top: int = 6) -> dict:
 
     today = date.today().isoformat()
     with conn() as c:
+        prev = dict(c.execute(
+            "SELECT asset, total FROM scores s WHERE date=(SELECT max(date) FROM scores WHERE asset=s.asset AND date<?)",
+            (today,)).fetchall())
+        for r in rows:
+            r["day_change"] = r["score"] - prev[r["asset"]] if r["asset"] in prev else 0
         c.executemany("INSERT OR REPLACE INTO scores VALUES (?,?,?,?)",
                       [(today, r["asset"], r["score"], json.dumps(r, default=str)) for r in rows])
 
@@ -97,6 +102,10 @@ def run(with_llm: bool = True, narrate_top: int = 6) -> dict:
         "sources": status, "setups": rows, "aaii": ctx["aaii"], "aaii_history": ctx["aaii_history"],
         "us2y": ctx["us2y"], "rates": ctx["rates"], "macro": ctx["macro"],
         "cot": {k: v for k, v in ctx["cot"].items() if v},
+        "cot_list": sorted(({"label": COT_LABELS.get(k, k), "code": k, **v} for k, v in ctx["cot"].items() if v),
+                           key=lambda x: x["long_pct"]),
+        "pcr": ctx["pcr"], "pcr_history": pcr_history(),
+        "retail": ctx["retail"],
         "geo_risk": geo, "geo_history": get_kv("geo_history", []), "news": feed,
     }
     put_kv("latest", result, finished)
@@ -108,6 +117,20 @@ def _append_geo_history(score: int, ts: str, keep: int = 400):
     hist = get_kv("geo_history", [])
     hist.append({"ts": ts, "score": score})
     put_kv("geo_history", hist[-keep:], ts)
+
+
+def pcr_history(days: int = 180) -> dict[str, list]:
+    with conn() as c:
+        rows = c.execute("SELECT etf, date, ratio FROM pcr ORDER BY etf, date").fetchall()
+    out: dict[str, list] = {}
+    for etf, d, ratio in rows:
+        out.setdefault(etf, []).append({"date": d, "ratio": round(ratio, 4)})
+    for etf, pts in out.items():
+        for i, p in enumerate(pts):
+            win = [q["ratio"] for q in pts[max(0, i - 4): i + 1]]
+            p["ma5"] = round(sum(win) / len(win), 4)
+        out[etf] = pts[-days:]
+    return out
 
 
 def score_history(asset: str, days: int = 365) -> list[dict]:

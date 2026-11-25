@@ -47,6 +47,7 @@ def metrics(df: pd.DataFrame, code: str) -> dict | None:
         "net": int(last["long"] - last["short"]),
         "long_pct": round(float(long_pct.iloc[-1]), 2),
         "weekly_change": round(float(long_pct.iloc[-1] - long_pct.iloc[-2]), 2),
+        "monthly_change": round(float(long_pct.iloc[-1] - long_pct.iloc[-5]), 2) if len(d) >= 5 else None,
         "quarterly_change": round(float(long_pct.iloc[-1] - long_pct.iloc[-14]), 2) if len(d) >= 14 else None,
         "net_change": int((last["long"] - last["short"]) - (prev["long"] - prev["short"])),
     }

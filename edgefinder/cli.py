@@ -12,7 +12,9 @@ from .scoring import COLUMNS
 console = Console()
 
 
-def _cell(v: int) -> str:
+def _cell(v: int | None) -> str:
+    if v is None:
+        return ""
     return f"[bold blue]{v}[/]" if v > 0 else f"[bold red]{v}[/]" if v < 0 else "[dim]0[/]"
 
 

@@ -22,6 +22,9 @@ CURRENCY_COT = {
     "CAD": "090741", "CHF": "092741", "NZD": "112741", "USD": "098662",  # USD = ICE Dollar Index
 }
 
+# Display names for COT contracts (currencies by ISO code, others by asset name)
+COT_LABELS = {code: ccy for ccy, code in CURRENCY_COT.items()}
+
 # Policy-rate series on FRED (USD/EUR are official; others are OECD immediate rates).
 POLICY_RATE_FRED = {
     "USD": "DFEDTARU", "EUR": "ECBDFR", "GBP": "IRSTCI01GBM156N", "JPY": "IRSTCI01JPM156N",
@@ -60,6 +63,8 @@ ASSETS: dict[str, dict] = {
     "UK100": dict(kind="index", yf="^FTSE", cot=None, pcr="EWU", econ="GBP"),
     "BTCUSD": dict(kind="crypto", yf="BTC-USD", cot="133741", pcr="IBIT", econ="USD"),
 }
+
+COT_LABELS.update({a["cot"]: name for name, a in ASSETS.items() if a.get("cot")})
 
 # LLM (any OpenAI-compatible endpoint). Default = local Ollama, which is free.
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://localhost:11434/v1")
